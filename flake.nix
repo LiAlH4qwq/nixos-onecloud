@@ -1,5 +1,5 @@
 {
-  description = "NixOS port for OneCloud (Amlogic S805 / Meson8b)";
+  description = "NixOS port for XunLei OneCloud (Amlogic S805 / Meson8b)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";

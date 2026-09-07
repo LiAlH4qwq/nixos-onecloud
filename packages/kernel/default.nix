@@ -38,7 +38,7 @@ let
       # Armbian's meson-current config does not enable the kernel lockup /
       # hung-task detectors. Without them a boot-time driver hang gives no
       # backtrace (watchdog_thresh / hung_task_timeout_secs boot params are
-      # ignored). Turn them on so the ~23s OneCloud boot freeze prints a
+      # ignored). Turn them on so the ~23s XunLei OneCloud boot freeze prints a
       # "Call trace" / "INFO: task ... blocked" identifying the wedged driver.
       # These all `depends on DEBUG_KERNEL`, which Armbian leaves off — enable
       # it first or olddefconfig silently drops the detectors.
@@ -85,7 +85,7 @@ linuxManualConfig {
   }) mesonPatches;
 
   extraMeta = {
-    description = "Linux kernel for Onecloud (Amlogic S805 / Meson8b)";
+    description = "Linux kernel for XunLei OneCloud (Amlogic S805 / Meson8b)";
     license = lib.licenses.gpl2Only;
     platforms = [ "armv7l-linux" ];
   };

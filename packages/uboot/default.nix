@@ -66,7 +66,7 @@ stdenv.mkDerivation {
   dontFixup = true;
 
   meta = {
-    description = "U-Boot for OneCloud (Amlogic S805 / Meson8b)";
+    description = "U-Boot for XunLei OneCloud (Amlogic S805 / Meson8b)";
     homepage = "https://github.com/hzyitc/u-boot";
     license = lib.licenses.gpl2Plus;
     platforms = [ "x86_64-linux" ];

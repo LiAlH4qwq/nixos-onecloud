@@ -1,4 +1,4 @@
-# SD image configuration for OneCloud.
+# SD image configuration for XunLei OneCloud.
 #
 # This module imports nixpkgs' sd-image.nix itself (the consumer does NOT
 # need to import it) and configures it to produce a flashable image whose

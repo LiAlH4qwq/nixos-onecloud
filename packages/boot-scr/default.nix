@@ -4,7 +4,7 @@
   stdenv,
   ubootTools,
 }:
-# Boot script for OneCloud u-boot
+# Boot script for XunLei OneCloud u-boot
 # Based on Armbian's boot-onecloud.cmd, adapted for NixOS
 stdenv.mkDerivation {
   pname = "onecloud-boot-scr";
@@ -22,7 +22,7 @@ stdenv.mkDerivation {
 
     # Generate boot.scr
     cat >boot.cmd <<'BOOTCMD'
-    # OneCloud boot script for NixOS
+    # XunLei OneCloud boot script for NixOS
 
     if test -n "''${bootdev}"; test $? != 0; then
       echo 'Set bootdev first:'
@@ -85,7 +85,7 @@ stdenv.mkDerivation {
   '';
 
   meta = {
-    description = "Boot script and splash for OneCloud";
+    description = "Boot script and splash for XunLei OneCloud";
     platforms = lib.platforms.linux;
   };
 }

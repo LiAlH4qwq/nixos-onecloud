@@ -1,10 +1,10 @@
 # nixos-onecloud
 
-NixOS port for the **Xunlong (Thunder) OneCloud** — a cheap NAS-style board with an
-**Amlogic S805 / Meson8b** SoC (4× Cortex-A5, 1 GiB RAM, 8 GiB eMMC, Gigabit
-Ethernet). This flake cross-compiles, from `x86_64-linux`, a complete,
-flashable NixOS image that boots through the same `u-boot` layout as the
-Armbian OneCloud port.
+NixOS port for the **XunLei OneCloud (Amlogic S805 / Meson8b)** — a cheap
+NAS-style board from Xunlei (迅雷 / "Thunder"): 4× Cortex-A5, 1 GiB RAM, 8 GiB
+eMMC, Gigabit Ethernet. This flake cross-compiles, from `x86_64-linux`, a
+complete, flashable NixOS image that boots through the same `u-boot` layout as
+Armbian's `onecloud` port.
 
 ## Status
 
@@ -25,7 +25,7 @@ pre-sized instead of relying on (flaky) boot-time growth — see
 - **Boot flow:** Amlogic u-boot → `boot.scr` (FAT `/BOOT`) → `uImage` +
   `uInitrd` + `meson8b-onecloud.dtb` → NixOS systemd initrd
 - **Kernel:** 6.12.28, Armbian `linux-meson-current` config + Armbian Meson8b
-  patches + OneCloud DTS, with NixOS-required options appended (see
+  patches + XunLei OneCloud DTS, with NixOS-required options appended (see
   `packages/kernel/default.nix`)
 
 The `boot.scr` assembles the kernel command line itself
@@ -50,7 +50,7 @@ Flash to a USB stick or SD card **≥ ~6.5 GiB** (the root is pre-sized to
 $ sudo dd if=result/*.img of=/dev/sdX bs=4M conv=fsync status=progress
 ```
 
-Insert into the OneCloud and boot:
+Insert into the XunLei OneCloud and boot:
 
 - **USB:** `setenv bootdev "usb 0"; usb start`
 - **eMMC:** `setenv bootdev "mmc 1"` (from the u-boot prompt, or persist via
@@ -64,7 +64,7 @@ accounts are declared in `nixos-configurations/`.
 
 ## Image layout
 
-Matches the Armbian OneCloud layout:
+Matches the Armbian `onecloud` layout:
 
 | Offset | Size | Contents |
 | --- | --- | --- |
@@ -113,7 +113,7 @@ parts/                           flake-parts modules that define the flake outpu
 overlays/default.nix             builds the own packages once, exposes pkgs.onecloud.*
 packages/
   kernel/                        Meson8b kernel (Armbian config + patches)   [armv7l]
-  uboot/                         hzyitc U-Boot for OneCloud                   [x86_64]
+  uboot/                         hzyitc U-Boot for XunLei OneCloud           [x86_64]
   boot-scr/                      boot.scr + splash (Armbian-derived)          [x86_64]
   amlimg/                        Amlogic image packing / USB burn tool        [x86_64]
   toolchain-bin/                 gcc-linaro arm-none-eabi 4.8 needed by u-boot [i686]
@@ -122,7 +122,7 @@ nixos-modules/
     default.nix                  hardware.onecloud NixOS module (options + config)
     sdimage.nix                  sd-image integration (layout, boot files, grow)
 nixos-configurations/
-  nixos-onecloud/default.nix     the OneCloud machine definition (cross + users + features)
+  nixos-onecloud/default.nix     the XunLei OneCloud machine definition (cross + users + features)
 ```
 
 ### Flake outputs

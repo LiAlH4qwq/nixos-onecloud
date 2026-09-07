@@ -12,18 +12,18 @@ let
 in
 {
   options.hardware.onecloud = {
-    enable = mkEnableOption "Xunlong OneCloud (Amlogic S805/Meson8b) support";
+    enable = mkEnableOption "XunLei OneCloud (Amlogic S805 / Meson8b) support";
 
     kernelPackage = mkOption {
       type = types.package;
       default = pkgs.onecloud.kernel;
-      description = "Kernel package for OneCloud. Defaults to the flake-provided Meson8b kernel via the onecloud overlay.";
+      description = "Kernel package for XunLei OneCloud. Defaults to the flake-provided Meson8b kernel via the onecloud overlay.";
     };
 
     ubootPackage = mkOption {
       type = types.package;
       default = pkgs.onecloud.uboot;
-      description = "U-Boot package for OneCloud. Defaults to the flake-provided hzyitc u-boot via the onecloud overlay.";
+      description = "U-Boot package for XunLei OneCloud. Defaults to the flake-provided hzyitc u-boot via the onecloud overlay.";
     };
 
     bootScrPackage = mkOption {
@@ -48,7 +48,7 @@ in
     };
 
     sdImage = {
-      enable = mkEnableOption "SD card image generation for OneCloud";
+      enable = mkEnableOption "SD card image generation for XunLei OneCloud";
 
       firmwarePartitionOffset = mkOption {
         type = types.int;
@@ -110,7 +110,7 @@ in
       [
         "no_console_suspend"
         "consoleblank=0"
-        # DEBUG: verbose systemd logging. NOTE the OneCloud boot.scr flow builds
+        # DEBUG: verbose systemd logging. NOTE the XunLei OneCloud boot.scr flow builds
         # its own cmdline and ignores boot.kernelParams, so this only takes
         # effect for the extlinux path; on the boot.scr path the flag is passed
         # via armbianEnv.txt extraargs in sdimage.nix. Remove once the reflash

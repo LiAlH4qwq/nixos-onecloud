@@ -5,10 +5,10 @@ Guidance for AI agents and contributors working in this repository.
 ## What this is
 
 A **flake-parts** flake that cross-compiles (from `x86_64-linux`) a full
-NixOS image for the **OneCloud** board (Amlogic S805 / Meson8b, 32-bit ARM).
-It provides a reusable NixOS module (`hardware.onecloud`), a machine
-configuration, and the own packages it depends on (kernel, u-boot, boot.scr,
-amlimg, toolchain).
+NixOS image for the **XunLei OneCloud (Amlogic S805 / Meson8b)** board
+(32-bit ARM). It provides a reusable NixOS module (`hardware.onecloud`), a
+machine configuration, and the own packages it depends on (kernel, u-boot,
+boot.scr, amlimg, toolchain).
 
 **Supported build host:** `x86_64-linux`. Target: `armv7l-hf-multiplatform`
 via `nixpkgs.crossSystem` (see `nixos-configurations/nixos-onecloud/default.nix`).

@@ -87,7 +87,7 @@ in
   # --- PWM fix ---
   (patch "generic-Revert-pwm-meson-modify-and-simplify-calculation-in-.patch" "sha256-jYPDsqtGRuxGonCwT8utMFPMiRGXrFMsbhS91OXDDLg=")
 
-  # --- OneCloud DTS ---
+  # --- XunLei OneCloud DTS ---
   (patch "onecloud-0001-add-dts.patch" "sha256-BD/TBWaelntBAnSrm9MACl+kIxbMUzm4Guk6+glTS+g=")
   (patch "onecloud-0002-dts-Support-HDMI.patch" "sha256-CNYrHPJv4p0t/9/P/3JLdTiHS5O+ICt4/NYDLIVzFlc=")
 ]
