@@ -48,6 +48,17 @@ let
       echo "CONFIG_SOFTLOCKUP_DETECTOR=y" >> "$out"
       echo "CONFIG_LOCKUP_DETECTOR=y" >> "$out"
       echo "CONFIG_HARDLOCKUP_DETECTOR=y" >> "$out"
+
+      # NixOS 26.05 mounts /etc from an erofs metadata image in the initrd
+      # (rw-etc: /run/nixos-etc-metadata). Without EROFS that mount fails and
+      # the boot drops to emergency mode. Make it built-in so it works in the
+      # initrd without module loading.
+      echo "CONFIG_EROFS_FS=y" >> "$out"
+      echo "CONFIG_EROFS_FS_ZIP=y" >> "$out"
+
+      # rw-etc then overlays the metadata image onto /sysroot/etc for a
+      # writable /etc; that needs overlayfs built-in too.
+      echo "CONFIG_OVERLAY_FS=y" >> "$out"
     '';
   };
 

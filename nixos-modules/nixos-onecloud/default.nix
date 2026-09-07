@@ -67,6 +67,26 @@ in
         default = false;
         description = "Whether to compress the SD image with zstd.";
       };
+
+      rootSizeMiB = mkOption {
+        type = types.int;
+        default = 6144;
+        description = ''
+          Size of the ext4 root filesystem baked into the image, in MiB.
+
+          make-ext4-fs.nix only gives the root ~16 MiB of slack, and the stock
+          sd-image relies on grow-root-at-first-boot to make it usable. That
+          growth is flaky when the kernel refuses to re-read the partition
+          table of a mounted USB/SD (EBUSY), which leaves the root ~full and
+          makes first boot fail with ENOSPC (register-nix-paths, systemd-logind
+          and dhcpcd all fail). Pre-sizing the filesystem here guarantees
+          enough space regardless of whether boot-time growth succeeds.
+
+          Must fit the target media: a 7.28 GiB eMMC leaves ~6.9 GiB for the
+          root (16 MiB gap + 256 MiB BOOT), so the default 6144 MiB (6 GiB)
+          fits an 8 GB eMMC as well as any larger SD/USB stick.
+        '';
+      };
     };
   };
 
@@ -90,6 +110,12 @@ in
       [
         "no_console_suspend"
         "consoleblank=0"
+        # DEBUG: verbose systemd logging. NOTE the OneCloud boot.scr flow builds
+        # its own cmdline and ignores boot.kernelParams, so this only takes
+        # effect for the extlinux path; on the boot.scr path the flag is passed
+        # via armbianEnv.txt extraargs in sdimage.nix. Remove once the reflash
+        # is verified - it slows boot and spams the console.
+        "systemd.log_level=debug"
       ]
     ];
 
@@ -131,13 +157,11 @@ in
       # vm.mmap_rnd_bits is unsupported on 32-bit ARM
     '';
 
-    # Grow-the-root only makes sense when flashing a real eMMC/SD card; on a
-    # raw-USB image there is nothing to extend and the service just fails the
-    # boot log. Re-enable (drop this line) when flashing the eMMC.
-    systemd.services."expand-root-partition".enable = lib.mkForce false;
-
+    # First-boot root growth: handled in sdimage.nix (robustify + the sd-image
+    # root is pre-sized via rootSizeMiB, so growth is best-effort only).
     # NOTE: a global uutils overlay (diffutils/findutils/coreutils) breaks the
     # systemd-initrd evaluation (`boot.initrd.systemd.users.messagebus.shell`),
     # so it is intentionally NOT applied here.
+    nixpkgs.overlays = [ config.flake.overlays.nixos-onecloud ];
   };
 }

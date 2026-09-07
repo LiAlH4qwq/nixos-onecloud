@@ -1,18 +1,18 @@
-{ config, inputs, root, ... }:
+{
+  config,
+  inputs,
+  root,
+  ...
+}:
 let
   nixpkgsPath = "${inputs.nixpkgs}";
 in
 {
-  flake.nixosModules.nixos-onecloud =
-    { ... }:
-    {
-      nixpkgs.overlays = [ config.flake.overlays.nixos-onecloud ];
-
-      imports = [
-        (root + /modules/onecloud/default.nix)
-        (import (root + /modules/onecloud/sdimage.nix) { inherit nixpkgsPath; })
-      ];
-    };
-
-  flake.nixosModules.default = config.flake.nixosModules.nixos-onecloud;
+  flake.nixosModules = {
+    default = config.flake.nixosModules.nixos-onecloud;
+    nixos-onecloud.imports = [
+      (root + /modules/nixos-onecloud/default.nix)
+      (import (root + /modules/nixos-onecloud/sdimage.nix) { inherit nixpkgsPath; })
+    ];
+  };
 }
