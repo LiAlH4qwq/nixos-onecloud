@@ -13,6 +13,54 @@ boot.scr, amlimg, toolchain).
 **Supported build host:** `x86_64-linux`. Target: `armv7l-hf-multiplatform`
 via `nixpkgs.crossSystem` (see `nixos-configurations/nixos-onecloud/default.nix`).
 
+## Code regulations
+
+Follow these rules exactly when writing or editing Nix code in this repo.
+They exist to keep diffs small, the option set predictable, and the wiring
+traceable; do not work around them.
+
+1. **Attrsets**
+   - Write nested attribute values as one literal attrset:
+     `a = { b = 1; c = 2; };`.
+   - Never split that into repeated dotted definitions
+     (`a.b = 1; a.c = 2;`). Only decompose when you genuinely must merge
+     across modules or `lib.mkIf`; even then prefer a single attrset with
+     `lib.mkIf`/`lib.mkMerge` inside.
+
+2. **Functions**
+   - Sort destructured arguments alphabetically, both at the function
+     definition (`{ config, flakeConfig, lib, pkgs, root, ... }`) and at the
+     call site (`{ inherit flakeConfig root; inherit (config.flake) ...; }`).
+   - Keep `...` last.
+
+3. **Module options**
+   - Do not restate an option that another option already implies. If setting
+     `a.b` implies `c.d` (through module defaults), a config that uses `a.b`
+     must not add a redundant `c.d`. Only set `c.d` when deliberately deviating
+     from what `a.b` implies.
+
+4. **Module files & layering**
+   - Every component is a directory with a `default.nix`
+     (`a/b/default.nix`), referenced as `imports = [ a/b ]`. Do not create flat
+     single files such as `a/b.nix`.
+   - Do not jump layers. Import strictly one level at a time: `a/default.nix`
+     imports `./b` (i.e. `a/b`), and `b/default.nix` imports `./c` (i.e.
+     `a/b/c`). Never let `a` reach into `a/b/c` directly.
+
+5. **Module structure & wiring**
+   - Dependency/ownership graph (top level `flake.nix` always routes through
+     `parts/`):
+     `flake.nix -(uses)-> parts/ -(wires)-> { packages, overlays, nixos-modules, nixos-configurations }`.
+     `parts/` is the single place that turns repo directories into flake
+     outputs; keep repo-level concerns in the four top-level directories, not
+     in `parts/`.
+   - To add a new package follow the chain
+     `packages/<name>/default.nix -(reference in)-> overlays/default.nix -(exposed as flake.overlays by)-> parts/overlays -(injected into NixOS pkgs by)-> parts/nixos-modules -(consumed by)-> nixos-configurations`.
+   - Never use the flake input `self`. To reach the flake root use the
+     `root` specialArg; to read flake-level values use `config.flake`. When
+     calling a nested module system, pass them explicitly, e.g.
+     `specialArgs = { inherit root; flakeConfig = config; };`.
+
 ## Layout & where things go
 
 | Concern | Directory | Registered in |
