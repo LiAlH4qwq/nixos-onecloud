@@ -162,6 +162,5 @@ in
     # NOTE: a global uutils overlay (diffutils/findutils/coreutils) breaks the
     # systemd-initrd evaluation (`boot.initrd.systemd.users.messagebus.shell`),
     # so it is intentionally NOT applied here.
-    nixpkgs.overlays = [ config.flake.overlays.nixos-onecloud ];
   };
 }
