@@ -119,6 +119,14 @@ smoke test above (it evaluates the whole NixOS module set).
   32-bit ARM). Don't apply a global uutils overlay (breaks systemd-initrd
   evaluation). Keep `boot.initrd.includeDefaultModules = false` and the initrd
   gzip-compressed (old u-boot only loads gzip `uInitrd`).
+- **Cross-compile doc workarounds belong in the module, not the machine
+  config.** `hardware.onecloud` patches `fish` (`WITH_DOCS=false`) and
+  `uutils-coreutils-noprefix` (`MANPAGES=n COMPLETIONS=n`) when
+  `buildPlatform != hostPlatform`, so consumers such as `../nixos-config`
+  (which enables fish/uutils) also get them. This is explicitly *not* the
+  forbidden global uutils `replaceDependencies` overlay — only build flags.
+  FIXME(cross): these are hacks; fix the underlying cross builds (or upstream
+  the flags) and delete the block.
 - **Kernel config is `linuxManualConfig`** over the Armbian `linux-meson`
   config. Appended options are dropped by `olddefconfig` unless their
   dependencies are set first (e.g. hung-task detectors need `CONFIG_DEBUG_KERNEL=y`).

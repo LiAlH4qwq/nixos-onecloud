@@ -157,10 +157,42 @@ in
       # vm.mmap_rnd_bits is unsupported on 32-bit ARM
     '';
 
+    # ── Cross-compile doc workarounds ───────────────────────────────
+    # FIXME: host/target build hacks for producing this 32-bit ARM system on
+    # an x86_64 host. They belong in the reusable module (not the machine
+    # config) so other consumers such as ../nixos-config, which also enable
+    # fish and uutils, get them for free. Ideally fix the underlying cross
+    # builds (or upstream the flags) and then delete this block.
+    # The cross check is done on `prev` inside the overlay (not on `pkgs` in
+    # the module) to avoid the `pkgs` <-> `nixpkgs.overlays` recursion.
+    nixpkgs.overlays = [
+      (final: prev:
+        optionalAttrs (prev.stdenv.buildPlatform != prev.stdenv.hostPlatform) {
+          # fish 4.x builds its host-side Rust `xtask` helper while generating
+          # its docs (`cmake/Docs.cmake`). Under a cross build the pkg-config
+          # environment only points at the *target* (armv7l) pcre2, so the
+          # x86_64 xtask link fails ("skipping incompatible … libpcre2-8.so").
+          # Docs are useless on this board, so drop WITH_DOCS (and the
+          # untestable cross test-run).
+          fish = prev.fish.overrideAttrs (old: {
+            cmakeFlags = (old.cmakeFlags or [ ]) ++ [ (lib.cmakeBool "WITH_DOCS" false) ];
+            doCheck = false;
+          });
+
+          # The GNUmakefile's `build-uudoc` (manpages/completions) does a host
+          # build of `uudoc` but keeps the cross CC set, so blake3's build script
+          # tries to assemble x86-64 SSE code with the armv7 compiler (-m64) and
+          # fails. Manpages/completions are pointless on this board already, so
+          # skip them. NOTE: this is only a build-flag override, NOT the global
+          # uutils `replaceDependencies` overlay, which breaks systemd-initrd
+          # evaluation and stays deliberately unapplied.
+          uutils-coreutils-noprefix = prev.uutils-coreutils-noprefix.overrideAttrs (old: {
+            makeFlags = (old.makeFlags or [ ]) ++ [ "MANPAGES=n" "COMPLETIONS=n" ];
+          });
+        })
+    ];
+
     # First-boot root growth: handled in sdimage.nix (robustify + the sd-image
     # root is pre-sized via rootSizeMiB, so growth is best-effort only).
-    # NOTE: a global uutils overlay (diffutils/findutils/coreutils) breaks the
-    # systemd-initrd evaluation (`boot.initrd.systemd.users.messagebus.shell`),
-    # so it is intentionally NOT applied here.
   };
 }

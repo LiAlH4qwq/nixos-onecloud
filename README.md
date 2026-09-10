@@ -32,7 +32,7 @@ The `boot.scr` assembles the kernel command line itself
 (`root=<rootdev> rootwait rw <consoleargs> <extraargs>`), so **NixOS
 `boot.kernelParams` are ignored** on this boot path. Anything that must reach
 the cmdline (console, debug flags, …) has to be set via `armbianEnv.txt` in
-`modules/…/sdimage.nix`.
+`nixos-modules/nixos-onecloud/sdimage.nix`.
 
 ## Quick start
 
@@ -174,8 +174,45 @@ Notable design constraints baked into the modules:
   `system.nixos-init.enable` for the modern, bashless 26.05 stack.
 - `vm.mmap_rnd_bits` doesn't exist on 32-bit ARM → the generated sysctl file is
   neutralized so `systemd-sysctl` doesn't fail.
-- A global uutils overlay would break the systemd-initrd evaluation and is
-  deliberately not applied.
+- A global uutils `replaceDependencies` overlay would break the systemd-initrd
+  evaluation and is deliberately not applied.
+
+> **FIXME(cross):** the `hardware.onecloud` module patches `fish`
+> (`WITH_DOCS=false`) and `uutils-coreutils-noprefix`
+> (`MANPAGES=n COMPLETIONS=n`) when cross-compiling, because their host-side
+> doc/manpage generators link target libraries / compile host code with the
+> target compiler. These are build hacks, not real fixes — see the comment in
+> `nixos-modules/nixos-onecloud/default.nix`. Fix the cross builds (or upstream
+> the flags) and delete the block.
+
+## Consuming from another flake
+
+The flake is designed to be consumed as an input (e.g. by `../nixos-config`,
+which must not be edited by agents — only read):
+
+```nix
+# in the consumer's flake.nix
+inputs.nixos-onecloud = {
+  url = "github:lialh4qwq/nixos-onecloud";
+  inputs.nixpkgs.follows = "nixpkgs";
+  inputs.flake-parts.follows = "flake-parts";
+};
+```
+
+```nix
+# in the machine/device module
+imports = [ inputs.nixos-onecloud.nixosModules.nixos-onecloud ];
+
+hardware.onecloud = {
+  enable = true;
+  sdImage.enable = true;   # optional: build a flashable image
+};
+```
+
+`nixosModules.nixos-onecloud` is self-contained: it injects
+`pkgs.onecloud.*` via the bundled overlay, imports the sd-image integration,
+and carries the cross-build workarounds above, so a consumer does **not** need
+to copy anything from this repo's `nixos-configurations/`.
 
 ## Development
 
