@@ -31,8 +31,10 @@ pre-sized instead of relying on (flaky) boot-time growth — see
 The `boot.scr` assembles the kernel command line itself
 (`root=<rootdev> rootwait rw <consoleargs> <extraargs>`), so **NixOS
 `boot.kernelParams` are ignored** on this boot path. Anything that must reach
-the cmdline (console, debug flags, …) has to be set via `armbianEnv.txt` in
-`nixos-modules/nixos-onecloud/sdimage.nix`.
+the cmdline (console, debug flags, …) has to be set via `armbianEnv.txt`,
+written both by the image builder and, at runtime, by the
+`onecloud-boot-sync` service (see
+["Updating a running system"](#updating-a-running-system)).
 
 ## Quick start
 
@@ -99,6 +101,40 @@ Mitigation in this flake:
    kernel does accept the new partition size it still grows the root to fill
    the media.
 
+## Updating a running system
+
+The board boots through the vendor u-boot's `boot.scr`, which loads
+`/uImage` + `/uInitrd` from the FAT `BOOT` partition and takes the stage-2
+path from `armbianEnv.txt`. NixOS' normal generation switching writes only to
+the ext4 root, so on its own a `switch` would not change what boots.
+
+`hardware.onecloud` therefore mirrors the active generation's kernel, initrd,
+dtb and `armbianEnv.txt` onto the FAT partition from a `onecloud-boot-sync`
+systemd oneshot (started at boot and restarted on `switch`; best-effort,
+skipped when the media is absent). It is a service rather than an activation
+script so it keeps working under the perl-less / `nixos-init` profile. The
+files come from a single `hardware.onecloud.bootFiles` derivation — built with
+the *build-side* `mkimage` so its `system` is `x86_64-linux` — shared with the
+image builder, so the flashed image and later switches cannot drift. The
+service's `armbianEnv.txt` points `init=` at the stable
+`/nix/var/nix/profiles/system` symlink (resolved by the systemd initrd), so it
+does not have to be rewritten for every generation; the freshly flashed image
+uses the absolute toplevel instead, because that profile does not exist yet on
+first boot. Override `hardware.onecloud.bootPartition` (default
+`/dev/disk/by-label/BOOT`) or set it to `null` to disable the sync.
+
+Because the system is always cross (`buildPlatform = x86_64-linux`,
+`hostPlatform = armv7l`), it can be built on the PC and shipped to the board:
+
+```console
+# on the board
+$ nh os switch --build-host root@x86pc
+```
+
+The new generation takes effect on the **next reboot** (the running system is
+still the one `boot.scr` loaded). All of this is a workaround for the 2011
+vendor u-boot; a mainline/extlinux port would make it unnecessary.
+
 ## Repo structure
 
 ```
@@ -157,6 +193,9 @@ nixos-configurations/
 - `sdImage.enable` — also build a flashable image
 - `sdImage.firmwarePartitionOffset` (16), `firmwareSize` (256), `compressImage` (false)
 - `sdImage.rootSizeMiB` (6144) — pre-sized root, see above
+- `bootPartition` — FAT partition `boot.scr` reads (default
+  `/dev/disk/by-label/BOOT`; `null` disables the runtime sync, see
+  ["Updating a running system"](#updating-a-running-system))
 
 Notable design constraints baked into the modules:
 

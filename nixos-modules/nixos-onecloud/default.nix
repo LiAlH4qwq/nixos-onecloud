@@ -9,6 +9,40 @@ with lib;
 
 let
   cfg = config.hardware.onecloud;
+
+  # uImage/uInitrd/dtb for the selected kernel + initrd, shared by the SD-image
+  # builder (sdimage.nix) and the runtime FAT sync below. Built with the
+  # *build-side* mkimage, so the derivation's `system` is the build platform
+  # (x86_64) even in the cross configuration — which is what makes it work with
+  # `nh os switch --build-host x86pc` on the board.
+  bootFiles = pkgs.runCommand "onecloud-boot-files" {
+    nativeBuildInputs = [ pkgs.buildPackages.ubootTools ];
+  } ''
+    mkdir -p $out/dtb
+
+    mkimage -A arm -O linux -T kernel -C none \
+      -a 0x00208000 -e 0x00208000 -n "Linux kernel" \
+      -d ${cfg.kernelPackage}/zImage $out/uImage
+
+    mkimage -A arm -O linux -T ramdisk -C gzip \
+      -n "uInitrd" -d ${config.system.build.initialRamdisk}/initrd $out/uInitrd
+
+    cp ${cfg.kernelPackage}/dtbs/meson8b-onecloud.dtb $out/dtb/meson8b-onecloud.dtb
+
+    # armbianEnv.txt as used by the runtime sync. `init=` is the *stable*
+    # system-profile symlink, not the toplevel store path: the systemd initrd
+    # resolves it in-root (see nixos/modules/system/boot/systemd/initrd.nix),
+    # so this file does not need rewriting per generation and, crucially, the
+    # service can reference it without a toplevel self-reference cycle.
+    cat > $out/armbianEnv.txt <<EOF
+    verbosity=1
+    bootlogo=false
+    console=${cfg.console}
+    rootdev=fstab
+    rootfstype=ext4
+    extraargs=init=/nix/var/nix/profiles/system/init systemd.log_level=debug
+    EOF
+  '';
 in
 {
   options.hardware.onecloud = {
@@ -45,6 +79,29 @@ in
         - display: HDMI display only
         - serial: serial console only
       '';
+    };
+
+    bootPartition = mkOption {
+      type = types.nullOr types.str;
+      default = "/dev/disk/by-label/BOOT";
+      description = ''
+        Block device of the FAT boot partition that the vendor `boot.scr`
+        reads `uImage`/`uInitrd`/`dtb` from. The `onecloud-boot-sync`
+        systemd oneshot mirrors the active generation here so
+        `nixos-rebuild switch` / `nh os switch` take effect on the next boot.
+
+        Defaults to the label the SD-image builder writes
+        (`sdImage.firmwarePartitionName = "BOOT"`). Set to `null` to disable
+        the sync (e.g. when booting through a bootloader that follows the
+        on-root `extlinux` layout instead).
+      '';
+    };
+
+    bootFiles = mkOption {
+      type = types.package;
+      default = bootFiles;
+      internal = true;
+      description = "uImage/uInitrd/dtb matching the selected kernel and initrd.";
     };
 
     sdImage = {
@@ -191,6 +248,68 @@ in
           });
         })
     ];
+
+    # ── Boot partition sync ─────────────────────────────────────────
+    # The vendor boot.scr loads uImage/uInitrd from the FAT partition and
+    # armbianEnv.txt pins the stage-2 path, so a plain `switch` on the ext4
+    # root would otherwise never change what boots. Mirror the generation's
+    # boot files onto the FAT partition from a systemd oneshot (not an
+    # activation script: the perl-less / nixos-init profile is moving away
+    # from those).
+    #
+    # The service is restarted whenever `bootFiles` (kernel/initrd/dtb/env) or
+    # the system package set changes, so `nh os switch --build-host ...` takes
+    # effect on the next boot. `armbianEnv.txt` points `init=` at the stable
+    # `/nix/var/nix/profiles/system` symlink, so it does not need rewriting for
+    # every new generation.
+    #
+    # FIXME: this whole step is only needed because u-boot is the 2011 vendor
+    # build; it can go away once a mainline/extlinux port exists (see README).
+    systemd.services.onecloud-boot-sync = mkIf (cfg.bootPartition != null) {
+      description = "Mirror the active NixOS generation to the OneCloud FAT boot partition";
+
+      wantedBy = [ "multi-user.target" ];
+      after = [ "local-fs.target" ];
+
+      path = [
+        pkgs.coreutils
+        pkgs.util-linux
+      ];
+
+      restartTriggers = [
+        cfg.bootFiles
+        config.system.path
+      ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+
+      script = ''
+        # Best-effort: never fail boot if the media is absent or busy.
+        bootDev=${cfg.bootPartition}
+        if [ ! -b "$bootDev" ]; then
+          echo "onecloud-boot-sync: $bootDev not present, skipping"
+          exit 0
+        fi
+
+        bootDir=/run/onecloud-boot
+        mkdir -p "$bootDir"
+        if ! mount -t vfat "$bootDev" "$bootDir"; then
+          echo "onecloud-boot-sync: cannot mount $bootDev, skipping" >&2
+          exit 0
+        fi
+
+        mkdir -p "$bootDir/dtb"
+        cp -f ${cfg.bootFiles}/uImage "$bootDir/uImage"
+        cp -f ${cfg.bootFiles}/uInitrd "$bootDir/uInitrd"
+        cp -f ${cfg.bootFiles}/dtb/meson8b-onecloud.dtb "$bootDir/dtb/meson8b-onecloud.dtb"
+        cp -f ${cfg.bootFiles}/armbianEnv.txt "$bootDir/armbianEnv.txt"
+        sync
+        umount "$bootDir"
+      '';
+    };
 
     # First-boot root growth: handled in sdimage.nix (robustify + the sd-image
     # root is pre-sized via rootSizeMiB, so growth is best-effort only).

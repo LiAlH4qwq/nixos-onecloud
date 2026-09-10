@@ -114,6 +114,20 @@ smoke test above (it evaluates the whole NixOS module set).
   `boot.kernelParams`**. Kernel params for the real boot path must go into
   `armbianEnv.txt` `extraargs` in `nixos-modules/nixos-onecloud/sdimage.nix`.
   (Keeping them in `boot.kernelParams` too only covers the extlinux path.)
+- **The FAT `/BOOT` partition must track the active generation.**
+  `boot.scr` reads `uImage`/`uInitrd`/`dtb` from FAT and `armbianEnv.txt` pins
+  the stage-2 `init=`, so a plain `switch` on the ext4 root changes nothing.
+  `hardware.onecloud.bootFiles` (built with the *build-side* `mkimage`, so its
+  `.system` is `x86_64-linux`) is shared by the image builder and the
+  `onecloud-boot-sync` **systemd oneshot**, which mirrors it to
+  `bootPartition` (`/dev/disk/by-label/BOOT`). Keep it a service, not an
+  activation script — the perl-less / `nixos-init` profile is dropping those.
+  Its `armbianEnv.txt` uses the stable `/nix/var/nix/profiles/system/init`
+  symlink (resolved by the systemd initrd) instead of the toplevel, which
+  avoids a service→toplevel self-reference cycle; the flashed image uses the
+  absolute toplevel because that profile does not exist on first boot. The new
+  generation only takes effect on the next reboot. FIXME: delete this once a
+  mainline/extlinux u-boot port exists.
 - **Don't** import `profiles/base.nix` or enable `hardware.enableAllHardware`
   (pulls `efibootmgr`/`efivar` and modules that are broken/unbuildable on
   32-bit ARM). Don't apply a global uutils overlay (breaks systemd-initrd

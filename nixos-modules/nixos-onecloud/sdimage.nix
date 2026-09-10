@@ -19,7 +19,6 @@ with lib;
 
 let
   cfg = config.hardware.onecloud;
-  mkimage = "${pkgs.buildPackages.ubootTools}/bin/mkimage";
 in
 {
   # NOTE: we intentionally do NOT import profiles/base.nix here.  It is the
@@ -43,18 +42,14 @@ in
         cp ${cfg.bootScrPackage}/boot.scr firmware/boot.scr
         cp ${cfg.bootScrPackage}/bootup.bmp firmware/boot.bmp
 
-        # Kernel zImage -> uImage (LOADADDR=0x00208000, matches Armbian SRC_LOADADDR)
-        ${mkimage} -A arm -O linux -T kernel -C none \
-          -a 0x00208000 -e 0x00208000 -n "Linux kernel" \
-          -d ${cfg.kernelPackage}/zImage firmware/uImage
-
-        # Initrd -> uInitrd (gzip, matches Armbian post-update hook)
-        ${mkimage} -A arm -O linux -T ramdisk -C gzip \
-          -n "uInitrd" -d ${config.system.build.initialRamdisk}/initrd firmware/uInitrd
-
-        # Device tree
+        # Kernel/initrd/dtb. Built once by hardware.onecloud.bootFiles (with the
+        # build-side mkimage; LOADADDR=0x00208000 matches Armbian SRC_LOADADDR)
+        # and reused by the runtime onecloud-boot-sync systemd service so the
+        # flashed image and `switch` can't drift.
+        cp ${cfg.bootFiles}/uImage firmware/uImage
+        cp ${cfg.bootFiles}/uInitrd firmware/uInitrd
         mkdir -p firmware/dtb
-        cp ${cfg.kernelPackage}/dtbs/meson8b-onecloud.dtb firmware/dtb/meson8b-onecloud.dtb
+        cp ${cfg.bootFiles}/dtb/meson8b-onecloud.dtb firmware/dtb/meson8b-onecloud.dtb
 
       # Environment file consumed by boot.scr.
       #
@@ -71,6 +66,12 @@ in
         # boot.scr does not pass it, so stage-1 would otherwise fall back to
         # /init on the root and fail with "stage 2 init script not found".
         #
+        # This is the *absolute* toplevel: on the very first boot the
+        # /nix/var/nix/profiles/system profile does not exist yet (it is
+        # created by register-nix-paths later), so the stable symlink the
+        # runtime service uses would not resolve. The onecloud-boot-sync
+        # service rewrites this file with the stable symlink after first boot.
+        #
         # NOTE: this boot flow (boot.scr) assembles the kernel cmdline itself
         # (root + consoleargs + extraargs), so NixOS `boot.kernelParams` are
         # IGNORED here. Anything that must be on the cmdline (like the debug
@@ -78,7 +79,7 @@ in
         cat >firmware/armbianEnv.txt <<'ENVEOF'
 verbosity=1
 bootlogo=false
-console=both
+console=${cfg.console}
 rootdev=fstab
 rootfstype=ext4
 extraargs=init=${config.system.build.toplevel}/init systemd.log_level=debug
